@@ -11,8 +11,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Unzip project
-        run: unzip -o Hisab_Android_Studio_Project.zip
+      - name: Unzip and patch project
+        run: |
+          unzip -o Hisab_Android_Studio_Project.zip
+          python3 -c "p='Hisab/app/src/main/java/com/hisab/app/ui/screens/PersonDetailScreen.kt'; s=open(p).read().replace('MessagingHelper.buildReminderMessage(personWithPayments, currencySymbol)', 'MessagingHelper.buildReminderMessage(personWithPayments!!, currencySymbol)'); open(p,'w').write(s)"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
