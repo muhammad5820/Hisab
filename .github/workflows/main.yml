@@ -15,6 +15,101 @@ jobs:
         run: |
           unzip -o Hisab_Android_Studio_Project.zip
           python3 -c "p='Hisab/app/src/main/java/com/hisab/app/ui/screens/PersonDetailScreen.kt'; s=open(p).read().replace('MessagingHelper.buildReminderMessage(personWithPayments, currencySymbol)', 'MessagingHelper.buildReminderMessage(personWithPayments!!, currencySymbol)'); open(p,'w').write(s)"
+               python3 - << 'EOF'
+          repo_path = 'Hisab/app/src/main/java/com/hisab/app/data/repository/HisabRepository.kt'
+          repo_code = open(repo_path).read()
+          repo_addition = '''
+              suspend fun duplicateAllPeopleToNewSection(
+                  newAmountPaise: Long = 308000L,
+                  sectionLabel: String = "Section 2 - ₹3,080"
+              ): OperationResult<Int> {
+                  return try {
+                      val existingPeople = personDao.getAllPeopleOnce()
+                      if (existingPeople.isEmpty()) return OperationResult.Error("No people found.")
+                      val basePeople = existingPeople.filter { it.notes?.contains("Section 2") != true }
+                      val alreadyCreated = existingPeople.any { it.notes?.contains("Section 2") == true }
+                      if (alreadyCreated) return OperationResult.Error("₹3,080 section already added!")
+                      val now = System.currentTimeMillis()
+                      var count = 0
+                      database.withTransaction {
+                          for (person in basePeople) {
+                              val combinedNotes = listOfNotNull(sectionLabel, person.notes?.takeIf { it.isNotBlank() }).joinToString(" • ")
+                              personDao.insertPerson(
+                                  person.copy(
+                                      id = 0L,
+                                      totalAmountPaise = newAmountPaise,
+                                      notes = combinedNotes,
+                                      createdDateMillis = now,
+                                      updatedAtMillis = now
+                                  )
+                              )
+                              count++
+                          }
+                      }
+                      OperationResult.Success(count)
+                  } catch (e: Exception) {
+                      OperationResult.Error(e.message ?: "Error creating section")
+                  }
+              }
+          '''
+          if 'duplicateAllPeopleToNewSection' not in repo_code:
+              idx = repo_code.rfind('}')
+              repo_code = repo_code[:idx] + repo_addition + '\n}\n'
+              open(repo_path, 'w').write(repo_code)
+
+          vm_path = 'Hisab/app/src/main/java/com/hisab/app/ui/viewmodel/HisabViewModel.kt'
+          vm_code = open(vm_path).read()
+          vm_addition = '''
+              fun addNewSectionForAllPeople() {
+                  viewModelScope.launch {
+                      when (val res = repository.duplicateAllPeopleToNewSection()) {
+                          is OperationResult.Success -> _uiMessages.tryEmit("Added ₹3,080 section for ${res.data} people")
+                          is OperationResult.Error -> _uiMessages.tryEmit(res.message)
+                      }
+                  }
+              }
+          '''
+          if 'addNewSectionForAllPeople' not in vm_code:
+              idx = vm_code.rfind('class Factory')
+              vm_code = vm_code[:idx] + vm_addition + '\n    ' + vm_code[idx:]
+              open(vm_path, 'w').write(vm_code)
+
+          main_path = 'Hisab/app/src/main/java/com/hisab/app/MainActivity.kt'
+          main_code = open(main_path).read()
+          old_fab = '''            if (currentRoute == BottomTab.Home.route || currentRoute == BottomTab.People.route) {
+                          FloatingActionButton(
+                              onClick = { navController.navigate("add_person") }
+                          ) {
+                              Icon(Icons.Default.Add, contentDescription = "Add Person")
+                          }
+                      }'''
+          new_fab = '''            if (currentRoute == BottomTab.Home.route) {
+                          FloatingActionButton(
+                              onClick = { navController.navigate("add_person") }
+                          ) {
+                              Icon(Icons.Default.Add, contentDescription = "Add Person")
+                          }
+                      } else if (currentRoute == BottomTab.People.route) {
+                          androidx.compose.foundation.layout.Column(
+                              horizontalAlignment = androidx.compose.ui.Alignment.End,
+                              verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(androidx.compose.ui.unit.Dp(12f))
+                          ) {
+                              androidx.compose.material3.ExtendedFloatingActionButton(
+                                  onClick = { viewModel.addNewSectionForAllPeople() },
+                                  icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                                  text = { Text("Add ₹3,080 Section") }
+                              )
+                              FloatingActionButton(
+                                  onClick = { navController.navigate("add_person") }
+                              ) {
+                                  Icon(Icons.Default.Add, contentDescription = "Add Person")
+                              }
+                          }
+                      }'''
+          if 'Add ₹3,080 Section' not in main_code and old_fab in main_code:
+              main_code = main_code.replace(old_fab, new_fab)
+              open(main_path, 'w').write(main_code)
+          EOF
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
