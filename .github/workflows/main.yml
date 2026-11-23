@@ -14,7 +14,6 @@ jobs:
       - name: Unzip and patch project
         run: |
           unzip -o Hisab_Android_Studio_Project.zip
-          python3 -c "p='Hisab/app/src/main/java/com/hisab/app/ui/screens/PersonDetailScreen.kt'; s=open(p).read().replace('MessagingHelper.buildReminderMessage(personWithPayments, currencySymbol)', 'MessagingHelper.buildReminderMessage(personWithPayments!!, currencySymbol)'); open(p,'w').write(s)"
                python3 - << 'EOF'
           repo_path = 'Hisab/app/src/main/java/com/hisab/app/data/repository/HisabRepository.kt'
           repo_code = open(repo_path).read()
@@ -74,15 +73,15 @@ jobs:
               vm_code = vm_code[:idx] + vm_addition + '\n    ' + vm_code[idx:]
               open(vm_path, 'w').write(vm_code)
 
-                    main_path = 'Hisab/app/src/main/java/com/hisab/app/MainActivity.kt'
+          main_path = 'Hisab/app/src/main/java/com/hisab/app/MainActivity.kt'
           main_code = open(main_path).read()
           if 'Add ₹3,080 Section' not in main_code:
               target = 'if (currentRoute == BottomTab.Home.route || currentRoute == BottomTab.People.route)'
               start = main_code.find(target)
               if start != -1:
-                  fab_start = main_code.rfind('FloatingActionButton(', 0, start)
                   brace_count = 0
                   i = main_code.find('{', start)
+                  end = len(main_code)
                   while i < len(main_code):
                       if main_code[i] == '{':
                           brace_count += 1
@@ -117,8 +116,9 @@ jobs:
                           }'''
                   main_code = main_code[:start] + new_block + main_code[end:]
                   open(main_path, 'w').write(main_code)
-                  print("PATCHED MAINACTIVITY SUCCESSFULLY")
           EOF
+
+
 
 
       - name: Set up JDK 17
