@@ -74,42 +74,52 @@ jobs:
               vm_code = vm_code[:idx] + vm_addition + '\n    ' + vm_code[idx:]
               open(vm_path, 'w').write(vm_code)
 
-          main_path = 'Hisab/app/src/main/java/com/hisab/app/MainActivity.kt'
+                    main_path = 'Hisab/app/src/main/java/com/hisab/app/MainActivity.kt'
           main_code = open(main_path).read()
-          old_fab = '''            if (currentRoute == BottomTab.Home.route || currentRoute == BottomTab.People.route) {
-                          FloatingActionButton(
-                              onClick = { navController.navigate("add_person") }
-                          ) {
-                              Icon(Icons.Default.Add, contentDescription = "Add Person")
-                          }
-                      }'''
-          new_fab = '''            if (currentRoute == BottomTab.Home.route) {
-                          FloatingActionButton(
-                              onClick = { navController.navigate("add_person") }
-                          ) {
-                              Icon(Icons.Default.Add, contentDescription = "Add Person")
-                          }
-                      } else if (currentRoute == BottomTab.People.route) {
-                          androidx.compose.foundation.layout.Column(
-                              horizontalAlignment = androidx.compose.ui.Alignment.End,
-                              verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(androidx.compose.ui.unit.Dp(12f))
-                          ) {
-                              androidx.compose.material3.ExtendedFloatingActionButton(
-                                  onClick = { viewModel.addNewSectionForAllPeople() },
-                                  icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                                  text = { Text("Add ₹3,080 Section") }
-                              )
+          if 'Add ₹3,080 Section' not in main_code:
+              target = 'if (currentRoute == BottomTab.Home.route || currentRoute == BottomTab.People.route)'
+              start = main_code.find(target)
+              if start != -1:
+                  fab_start = main_code.rfind('FloatingActionButton(', 0, start)
+                  brace_count = 0
+                  i = main_code.find('{', start)
+                  while i < len(main_code):
+                      if main_code[i] == '{':
+                          brace_count += 1
+                      elif main_code[i] == '}':
+                          brace_count -= 1
+                          if brace_count == 0:
+                              end = i + 1
+                              break
+                      i += 1
+                  new_block = '''if (currentRoute == BottomTab.Home.route) {
                               FloatingActionButton(
                                   onClick = { navController.navigate("add_person") }
                               ) {
                                   Icon(Icons.Default.Add, contentDescription = "Add Person")
                               }
-                          }
-                      }'''
-          if 'Add ₹3,080 Section' not in main_code and old_fab in main_code:
-              main_code = main_code.replace(old_fab, new_fab)
-              open(main_path, 'w').write(main_code)
+                          } else if (currentRoute == BottomTab.People.route) {
+                              androidx.compose.foundation.layout.Column(
+                                  horizontalAlignment = androidx.compose.ui.Alignment.End,
+                                  verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(androidx.compose.ui.unit.Dp(12f))
+                              ) {
+                                  androidx.compose.material3.ExtendedFloatingActionButton(
+                                      onClick = { viewModel.addNewSectionForAllPeople() },
+                                      icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                                      text = { Text("Add ₹3,080 Section") }
+                                  )
+                                  FloatingActionButton(
+                                      onClick = { navController.navigate("add_person") }
+                                  ) {
+                                      Icon(Icons.Default.Add, contentDescription = "Add Person")
+                                  }
+                              }
+                          }'''
+                  main_code = main_code[:start] + new_block + main_code[end:]
+                  open(main_path, 'w').write(main_code)
+                  print("PATCHED MAINACTIVITY SUCCESSFULLY")
           EOF
+
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
